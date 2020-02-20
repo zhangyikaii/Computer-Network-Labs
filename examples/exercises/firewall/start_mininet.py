@@ -78,6 +78,11 @@ def setup_addressing(net):
     set_ip(net,'internal','internal-eth0','192.168.0.1/24')
     set_ip(net,'external','external-eth0','192.168.0.2/24')
 
+def disable_ipv6(net):
+    for v in net.values():
+        v.cmdPrint('sysctl -w net.ipv6.conf.all.disable_ipv6=1')
+        v.cmdPrint('sysctl -w net.ipv6.conf.default.disable_ipv6=1')
+
 def stop_nodegrams(net):
     for nname in ['external','internal','firewall']:
         n = net.get(nname)
@@ -87,6 +92,7 @@ def main():
     topo = PyRouterTopo(args)
     net = Mininet(topo=topo, link=TCLink, cleanup=True, autoSetMacs=True, controller=None)
     setup_addressing(net)
+    disable_ipv6(net)
     net.staticArp()
     net.interact()
 

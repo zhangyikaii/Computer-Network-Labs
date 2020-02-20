@@ -30,27 +30,26 @@ class PyRouterTopo(Topo):
         # Host and link configuration
         #
         #
-        #   server1 
+        #   blaster 
         #          \
-        #           router----client
+        #           middlebox
         #          /
-        #   server2 
+        #   blastee 
         #
 
         nodeconfig = {'cpu':-1}
-        self.addHost('server1', **nodeconfig)
-        self.addHost('server2', **nodeconfig)
-        self.addHost('router', **nodeconfig)
-        self.addHost('client', **nodeconfig)
-        
-        linkconfig = { 
+        self.addHost('blaster', **nodeconfig)
+        self.addHost('blastee', **nodeconfig)
+        self.addHost('middlebox', **nodeconfig)
+
+        linkconfig = {
             'bw': 10,
-            'delay': 0.010,
+            'delay': '37.5ms', # Feel free to play with this value to see how it affects the communication
             'loss': 0.0
         }
 
-        for node in ['server1','server2','client']:
-            self.addLink(node, 'router', **linkconfig)
+        for node in ['blaster','blastee']:
+            self.addLink(node, 'middlebox', **linkconfig)
 
 def set_ip_pair(net, node1, node2, ip1, ip2):
     node1 = net.get(node1)
@@ -74,28 +73,23 @@ def set_route(net, fromnode, prefix, gw):
     node_object.cmdPrint("route add -net {} gw {}".format(prefix, gw))
 
 def setup_addressing(net):
-    reset_macs(net, 'server1', '10:00:00:00:00:{:02x}')
-    reset_macs(net, 'server2', '20:00:00:00:00:{:02x}')
-    reset_macs(net, 'client', '30:00:00:00:00:{:02x}')
-    reset_macs(net, 'router', '40:00:00:00:00:{:02x}')
-    set_ip_pair(net, 'server1','router','192.168.100.1/30','192.168.100.2/30')
-    set_ip_pair(net, 'server2','router','192.168.200.1/30','192.168.200.2/30')
-    set_ip_pair(net, 'client','router','10.1.1.1/30','10.1.1.2/30')
-    set_route(net, 'server1', '10.1.0.0/16', '192.168.100.2')
-    set_route(net, 'server1', '192.168.200.0/24', '192.168.100.2')
-    set_route(net, 'server2', '10.1.0.0/16', '192.168.200.2')
-    set_route(net, 'server2', '192.168.100.0/24', '192.168.200.2')
-    set_route(net, 'client', '192.168.100.0/24', '10.1.1.2')
-    set_route(net, 'client', '192.168.200.0/24', '10.1.1.2')
-    set_route(net, 'client', '172.16.0.0/16', '10.1.1.2')
-
-    forwarding_table = open('forwarding_table.txt', 'w')    
-    table = '''192.168.100.0 255.255.255.0 192.168.100.1 router-eth0
-    192.168.200.0 255.255.255.0 192.168.200.1 router-eth1
-    10.1.0.0 255.255.0.0 10.1.1.1 router-eth2
     '''
-    forwarding_table.write(table)
-    forwarding_table.close()
+    * reset_macs call sets the MAC address of the nodes in the network
+    * blaster and blastee has a single port, hence the MAC address ends with :01
+    * middlebox has two ports, MAC address ends with :01 and :02 respectively, that are connected to the blaster and blastee.
+    '''
+    reset_macs(net, 'blaster', '10:00:00:00:00:{:02x}')
+    reset_macs(net, 'blastee', '20:00:00:00:00:{:02x}')
+    reset_macs(net, 'middlebox', '40:00:00:00:00:{:02x}')
+    '''
+    * set_ip_pair call assigns IP addresses of the interfaces
+    * convention is same as MAC address
+    * middlebox has two IP addresses: 192.168.100.2 and 192.168.200.2 - connected to blaster and blastee respectively
+    '''
+    set_ip_pair(net, 'blaster','middlebox','192.168.100.1/30','192.168.100.2/30')
+    set_ip_pair(net, 'blastee','middlebox','192.168.200.1/30','192.168.200.2/30')
+    set_route(net, 'blaster', '192.168.200.0/24', '192.168.100.2')
+    set_route(net, 'blastee', '192.168.100.0/24', '192.168.200.2')
 
 def disable_ipv6(net):
     for v in net.values():

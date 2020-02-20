@@ -32,7 +32,7 @@ class PySwitchTopo(Topo):
         #
         #   server1 
         #          \
-        #           switch----client
+        #           hub----client
         #          /
         #   server2 
         #
@@ -40,12 +40,12 @@ class PySwitchTopo(Topo):
         nodeconfig = {'cpu':-1}
         self.addHost('server1', **nodeconfig)
         self.addHost('server2', **nodeconfig)
-        self.addHost('switch', **nodeconfig)
+        self.addHost('hub', **nodeconfig)
         self.addHost('client', **nodeconfig)
         
         for node in ['server1','server2','client']:
             # all links are 10Mb/s, 100 millisecond prop delay
-            self.addLink(node, 'switch', bw=10, delay='100ms')
+            self.addLink(node, 'hub', bw=10, delay='100ms')
 
 def set_ip(net, node1, node2, ip):
     node1 = net.get(node1)
@@ -72,10 +72,10 @@ def setup_addressing(net):
     reset_macs(net, 'server1', '10:00:00:00:00:{:02x}')
     reset_macs(net, 'server2', '20:00:00:00:00:{:02x}')
     reset_macs(net, 'client', '30:00:00:00:00:{:02x}')
-    reset_macs(net, 'switch', '40:00:00:00:00:{:02x}')
-    set_ip(net, 'server1','switch','192.168.100.1/24')
-    set_ip(net, 'server2','switch','192.168.100.2/24')
-    set_ip(net, 'client','switch','192.168.100.3/24')
+    reset_macs(net, 'hub', '40:00:00:00:00:{:02x}')
+    set_ip(net, 'server1','hub','192.168.100.1/24')
+    set_ip(net, 'server2','hub','192.168.100.2/24')
+    set_ip(net, 'client','hub','192.168.100.3/24')
 
 def disable_ipv6(net):
     for v in net.values():
