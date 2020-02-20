@@ -9,3 +9,7 @@ updatepypi.sh
 switchyard.egg-info
 build
 dist
+# venv
+syenv/
+# vscode
+.vscode/
