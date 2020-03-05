@@ -72,11 +72,14 @@ def main(net):
     my_interfaces = net.interfaces() 
     mymacs = [intf.ethaddr for intf in my_interfaces]
 
-    # 主要工作:
+    inPkNum = 0
+    outPkNum = 0
+    # 主循环：
     while True:
         try:
             # 获得最先到达的包， 并返回 时间和对应的网卡
             timestamp,dev,packet = net.recv_packet()
+            inPkNum += 1
         except NoPackets:
             continue
         except Shutdown:
@@ -96,4 +99,6 @@ def main(net):
                     log_info ("Flooding packet {} to {}".format(packet, intf.name))
                     # 将包从对应网卡发出去
                     net.send_packet(intf, packet)
+                    outPkNum += 1
+        log_info("{} in:{} out:{}".format(timestamp, inPkNum, outPkNum))
     net.shutdown()
