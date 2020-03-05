@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import sys
 
@@ -69,6 +70,7 @@ def set_route(net, fromnode, prefix, nextnode):
     node_object.setDefaultRoute(ilist[0][0])
 
 def setup_addressing(net):
+    # {:02x} 数转为两位16进制表示.
     reset_macs(net, 'server1', '10:00:00:00:00:{:02x}')
     reset_macs(net, 'server2', '20:00:00:00:00:{:02x}')
     reset_macs(net, 'client', '30:00:00:00:00:{:02x}')
