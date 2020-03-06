@@ -43,6 +43,12 @@ def hub_tests():
     reqpkt = mk_pkt("20:00:00:00:00:01", "10:00:00:00:00:03", '192.168.1.100','172.16.42.2')
     s.expect(PacketInputEvent("eth2", reqpkt, display=Ethernet), "An Ethernet frame should arrive on eth2 with destination address the same as eth2's MAC address")
     s.expect(PacketInputTimeoutEvent(1.0), "The hub should not do anything in response to a frame arriving with a destination address referring to the hub itself.")
+
+    # test case 4: a frame with dest address of one of the interfaces should
+    # result in nothing happening
+    reqpkt = mk_pkt("20:00:00:00:00:01", "10:00:00:00:00:02", '192.168.1.100','172.16.42.2')
+    s.expect(PacketInputEvent("eth1", reqpkt, display=Ethernet), "An Ethernet frame should arrive on eth1 with destination address the same as eth1's MAC address")
+    s.expect(PacketInputTimeoutEvent(1.0), "The hub should not do anything in response to a frame arriving with a destination address referring to the hub itself.")
     return s
 
 scenario = hub_tests()

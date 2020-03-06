@@ -71,6 +71,7 @@ from switchyard.lib.userlib import *
 def main(net):
     my_interfaces = net.interfaces() 
     mymacs = [intf.ethaddr for intf in my_interfaces]
+    log_info("mymacs: {}".format(mymacs))
 
     inPkNum = 0
     outPkNum = 0
