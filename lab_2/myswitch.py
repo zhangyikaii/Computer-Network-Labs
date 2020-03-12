@@ -15,16 +15,18 @@ def main(net):
         try:
             timestamp,input_port,packet = net.recv_packet()
         except NoPackets:
+            log_info("Hit except NoPackets.")
             continue
         except Shutdown:
+            log_info("Hit except Shutdown.")
             return
 
-        log_debug ("In {} received packet {} on {}".format(net.name, packet, input_port))
+        log_info("In {} received packet {} on {}".format(net.name, packet, input_port))
         if packet[0].dst in mymacs:
-            log_debug ("Packet intended for me")
+            log_info("Packet intended for me")
         else:
             for intf in my_interfaces:
                 if input_port != intf.name:
-                    log_debug ("Flooding packet {} to {}".format(packet, intf.name))
+                    log_info("Flooding packet {} to {}".format(packet, intf.name))
                     net.send_packet(intf.name, packet)
     net.shutdown()
