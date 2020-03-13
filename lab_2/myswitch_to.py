@@ -38,8 +38,8 @@ def main(net):
         log_info("In ({}) received packet ({}) on ({})".format(net.name, packet, input_port))
         
         # 加入转发表，self-learning
-        if packet[0].src not in forwTable.keys():
-            forwTable[packet[0].src] = [input_port, time.time()]
+        forwTable[packet[0].src] = [input_port, time.time()]
+        # 已经存在就是刷新时间戳
 
         updateForwardingTable(forwTable, 10)
 

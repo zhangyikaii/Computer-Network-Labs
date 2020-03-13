@@ -43,7 +43,7 @@ def main(net):
                 # 如果port不同，需要更新：
                 if port != input_port:
                     forwTable.remove(forwTable[idx])
-                    heapq.heappush(forwTable, (0, packet[0].src, input_port))
+                    heapq.heappush(forwTable, (vol, packet[0].src, input_port))
                 isFind = True
                 break
         if isFind == False:
