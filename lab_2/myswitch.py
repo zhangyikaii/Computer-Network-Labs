@@ -25,34 +25,26 @@ def main(net):
             log_info("Hit except Shutdown.")
             return
 
-        log_info("In {} received packet {} on {}".format(net.name, packet, input_port))
+        log_info("In ({}) received packet ({}) on ({})".format(net.name, packet, input_port))
         if packet[0].dst in mymacs:
             log_info("Packet intended for me")
         else:
-            isOk = False
             # 广播
-            if str(packet[0].dst) == "ff:ff:ff:ff:ff:ff":
+            if str(packet[0].dst) == "ff:ff:ff:ff:ff:ff" or packet[0].src not in forwTable.keys():
                 log_info("Got the broadcast packet.")
                 for intf in my_interfaces:
                     if input_port != intf.name:
-                        log_info("Flooding packet {} to {}".format(packet, intf.name))
+                        log_info("Flooding packet ({}) to ({})".format(packet, intf.name))
                         net.send_packet(intf.name, packet)
-                        isOk = True
 
-            # 加入转发表，顺便存一下时间
-            if packet[0].src not in forwTable.keys():
-                forwTable[packet[0].src] = [input_port, time.time()]
-
-            if isOk == False:
-                # 看看转发表如果有直接发送
+            else:
+                log_info("Got has been learned packet")
+                # 在转发表中，直接发送
                 if packet[0].dst in forwTable.keys():
-                    net.send_packet(forwTable[packet[0].dst][0], packet)
-                    isOk = True
-            
-            # if isOk == False:
-            #     for intf in my_interfaces:
-            #         if input_port != intf.name:
-            #             log_info("Flooding packet {} to {}".format(packet, intf.name))
-            #             net.send_packet(intf.name, packet)
+                    net.send_packet(forwTable[packet[0].dst], packet)
+            # 加入转发表，顺便存一下时间，self-learning
+            if packet[0].src not in forwTable.keys():
+                forwTable[packet[0].src] = input_port
+
 
     net.shutdown()
