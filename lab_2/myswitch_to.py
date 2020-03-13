@@ -10,6 +10,14 @@ that doesn't learn.)
 from switchyard.lib.userlib import *
 import time
 
+# 更新 forwarding table 的方法：
+def updateForwardingTable(ft, duration):
+    for k in list(ft):
+        if time.time() - ft[k][1] > duration:
+            ft.pop(k)
+            # log_info("Delete key: {}".format(k))
+    # log_info("updateForwardingTable return")
+
 def main(net):
     my_interfaces = net.interfaces() 
     mymacs = [intf.ethaddr for intf in my_interfaces]
@@ -31,7 +39,9 @@ def main(net):
         
         # 加入转发表，self-learning
         if packet[0].src not in forwTable.keys():
-            forwTable[packet[0].src] = input_port
+            forwTable[packet[0].src] = [input_port, time.time()]
+
+        updateForwardingTable(forwTable, 10)
 
         if packet[0].dst in mymacs:
             log_info("Packet intended for me")
@@ -46,7 +56,7 @@ def main(net):
             else:
                 # 在转发表中，直接发送
                 log_info("(self-learning) Sending packet ({}) to ({})\n".format(packet, forwTable[packet[0].dst]))
-                net.send_packet(forwTable[packet[0].dst], packet)
+                net.send_packet(forwTable[packet[0].dst][0], packet)
 
 
     net.shutdown()
