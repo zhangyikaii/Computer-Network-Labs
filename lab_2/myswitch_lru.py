@@ -33,13 +33,13 @@ def main(net):
         # log_info("In ({}) received packet ({}) on ({})".format(net.name, packet, input_port))
         
         # Learning step: Update forwarding table:
-        # 注意自学习的时候不更新表项。
         # 针对src。
         isFind = False
 
         for idx, [val, port] in enumerate(forwTable):
-            if val == packet[0].src and port == input_port:
+            if val == packet[0].src:
                 # 表中有，不用加入
+                forwTable[idx] = [packet[0].src, input_port]
                 isFind = True
                 break
         if isFind == False:

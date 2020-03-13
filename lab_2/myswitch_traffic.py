@@ -9,9 +9,9 @@ that doesn't learn.)
 '''
 from switchyard.lib.userlib import *
 import time
-from collections import deque
+import heapq
 
-# LRU: fowarding table 数据结构由 dictionary 换成 deque
+# traffic: fowarding table 数据结构由 deque 换成 prio queue
 
 def main(net):
     my_interfaces = net.interfaces() 
@@ -19,7 +19,8 @@ def main(net):
 
     # log_info("My Interfaces: {}".format([intf.name for intf in my_interfaces]))
 
-    forwTable = deque(maxlen=5) # 转发表.
+    forwTable = [] # 转发表.
+    maxEntries = 5
     while True:
         try:
             timestamp,input_port,packet = net.recv_packet()
@@ -33,30 +34,35 @@ def main(net):
         # log_info("In ({}) received packet ({}) on ({})".format(net.name, packet, input_port))
         
         # Learning step: Update forwarding table:
-        # 注意自学习的时候不更新表项。
         # 针对src。
         isFind = False
 
-        for idx, [val, port] in enumerate(forwTable):
-            if val == packet[0].src and port == input_port:
-                # 表中有，不用加入
+        for idx, (vol, curMac, port) in enumerate(forwTable):
+            # 表中有，不用加入
+            if curMac == packet[0].src:
+                # 如果port不同，需要更新：
+                if port != input_port:
+                    forwTable.remove(forwTable[idx])
+                    heapq.heappush(forwTable, (0, packet[0].src, input_port))
                 isFind = True
                 break
         if isFind == False:
             # print("ADD: ", [packet[0].src, input_port])
-            forwTable.append([packet[0].src, input_port])
+            if len(forwTable) == maxEntries:
+                heapq.heappop(forwTable)
+            heapq.heappush(forwTable, (0, packet[0].src, input_port))
 
         if packet[0].dst in mymacs:
             # log_info("Packet intended for me")
             pass
         else:
-            # 针对src，需要LRU更新：
+            # 针对src：
             dstPort = None
-            for val, port in list(forwTable):
-                if val == packet[0].dst:
-                    # print("Hit: ", [val, port])
-                    forwTable.remove([val, port])
-                    forwTable.append([val, port])
+            for idx, (vol, curMac, port) in enumerate(forwTable):
+                if curMac == packet[0].dst:
+                    # print("Hit: ", [curMac, port])
+                    forwTable.remove(forwTable[idx])
+                    heapq.heappush(forwTable, (vol + 1, curMac, port))
                     dstPort = port
                     break
             if dstPort != None:
@@ -66,7 +72,6 @@ def main(net):
                 for intf in my_interfaces:
                     if input_port != intf.name:
                         # log_info("(broadcast) Flooding packet ({}) to ({})\n".format(packet, intf.name))
-                        net.send_packet(intf.name, packet)                
-
+                        net.send_packet(intf.name, packet)
 
     net.shutdown()
