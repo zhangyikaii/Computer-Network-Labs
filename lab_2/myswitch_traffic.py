@@ -52,6 +52,10 @@ def main(net):
                 heapq.heappop(forwTable)
             heapq.heappush(forwTable, (0, packet[0].src, input_port))
 
+        # print("")
+        # for i in forwTable:
+        #     print(i, ", ", end="")
+        
         if packet[0].dst in mymacs:
             # log_info("Packet intended for me")
             pass
