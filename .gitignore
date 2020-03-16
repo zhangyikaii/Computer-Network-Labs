@@ -1,7 +1,6 @@
 xenv
 *.pyc
 __pycache__
-*.pcap
 .coverage
 htmlcov
 sandbox
