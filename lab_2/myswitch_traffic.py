@@ -16,8 +16,7 @@ import heapq
 def main(net):
     my_interfaces = net.interfaces() 
     mymacs = [intf.ethaddr for intf in my_interfaces]
-
-    # log_info("My Interfaces: {}".format([intf.name for intf in my_interfaces]))
+    log_info("My Interfaces: {}".format([intf.name for intf in my_interfaces]))
 
     forwTable = [] # 转发表.
     maxEntries = 5
@@ -51,10 +50,6 @@ def main(net):
             if len(forwTable) == maxEntries:
                 heapq.heappop(forwTable)
             heapq.heappush(forwTable, (0, packet[0].src, input_port))
-
-        # print("")
-        # for i in forwTable:
-        #     print(i, ", ", end="")
         
         if packet[0].dst in mymacs:
             # log_info("Packet intended for me")
@@ -77,5 +72,9 @@ def main(net):
                     if input_port != intf.name:
                         # log_info("(broadcast) Flooding packet ({}) to ({})\n".format(packet, intf.name))
                         net.send_packet(intf.name, packet)
+        print("")
+        for i, v in enumerate(forwTable):
+            print("{}: {}".format(i, v))
+        print("")
 
     net.shutdown()
