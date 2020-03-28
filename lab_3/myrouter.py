@@ -22,6 +22,8 @@ class Router(object):
         Main method for router; we stay in a loop in this method, receiving
         packets until the end of time.
         '''
+        for i in self.net.interfaces():
+            print(i)
         while True:
             gotpkt = True
             try:
@@ -39,24 +41,26 @@ class Router(object):
                 if pkt.has_header(Arp):
                     arp = pkt.get_header(Arp)
 
+                    # 找目的地IP 对应的 路由器interface:
                     targetIntf = None
                     for i in self.net.interfaces():
-                        # 找目的地IP 对应的 路由器interface:
                         if arp.targetprotoaddr == i.ipaddr:
                             targetIntf = i
                     if targetIntf != None:
                         if arp.operation == ArpOperation.Request:
                             # ARP请求来了：
                             # print(self.net.interface_by_ipaddr(arp.senderprotoaddr))
+                            print("Request create_ip_arp_reply: ({}, {}, {}, {})".format(targetIntf.ethaddr, arp.senderhwaddr, targetIntf.ipaddr, arp.senderprotoaddr))
+
                             arpReply = create_ip_arp_reply(targetIntf.ethaddr, arp.senderhwaddr, targetIntf.ipaddr, arp.senderprotoaddr)
                             self.net.send_packet(dev, arpReply)
 
                         elif arp.operation == ArpOperation.Reply:
+                            print("Reply")
                             pass
-
-
-
-
+                        else:
+                            print("Else")
+                            pass
 
 def main(net):
     '''
