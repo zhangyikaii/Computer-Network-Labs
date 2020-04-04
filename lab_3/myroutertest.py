@@ -79,9 +79,6 @@ def router_tests():
 
     arpRequestLab3TestCase(s, host[2][0], '10:00:00:00:00:02', host[2][1], host[2][2], 'router-eth1')
 
-
-
-    
     return s
 
 scenario = router_tests()
