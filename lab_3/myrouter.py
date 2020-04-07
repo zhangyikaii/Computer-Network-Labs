@@ -71,7 +71,7 @@ class Router(object):
                             # print("Request create_ip_arp_reply: ({}, {}, {}, {})".format(targetIntf.ethaddr, arp.senderhwaddr, targetIntf.ipaddr, arp.senderprotoaddr))
                             arpReply = create_ip_arp_reply(targetIntf.ethaddr, arp.senderhwaddr, targetIntf.ipaddr, arp.senderprotoaddr)
                             self.net.send_packet(dev, arpReply)
-                            self.arpTable[targetIntf.ipaddr] = targetIntf.ethaddr
+                            self.arpTable[arp.senderprotoaddr] = arp.senderhwaddr
 
                         elif arp.operation == ArpOperation.Reply:
                             self.arpTable[arp.senderprotoaddr] = arp.senderhwaddr
