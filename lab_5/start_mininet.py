@@ -83,6 +83,7 @@ def setup_addressing(net):
     set_ip_pair(net, 'client','router','10.1.1.1/30','10.1.1.2/30')
     set_route(net, 'server1', '10.1.0.0/16', '192.168.100.2')
     set_route(net, 'server1', '192.168.200.0/24', '192.168.100.2')
+    set_route(net, 'server1', '166.166.0.0/16', '192.168.100.2')
     set_route(net, 'server2', '10.1.0.0/16', '192.168.200.2')
     set_route(net, 'server2', '192.168.100.0/24', '192.168.200.2')
     set_route(net, 'client', '192.168.100.0/24', '10.1.1.2')

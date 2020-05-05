@@ -177,14 +177,6 @@ class Router(object):
                               xcode=1,
                               origpkt=pkt)
 
-        # cannot handle this type of packet
-        if ipv4.protocol == IPProtocol.UDP:
-            print("(ERROR) UDP 报文")
-            return mk_icmperr(self.net.interface_by_name(port).ethaddr, eHdr.src,
-                              self.net.interface_by_name(port).ipaddr, ipv4.src, ICMPType.DestinationUnreachable,
-                              xcode=3,
-                              origpkt=pkt)
-
         if ipv4.dst not in [intf.ipaddr for intf in self.net.interfaces()]:
             isFindItem = False
             for i in self.fwTable:
@@ -198,10 +190,18 @@ class Router(object):
             print("(ERROR) TTL 即将为 0")
             return mk_icmperr(self.net.interface_by_name(port).ethaddr, eHdr.src, self.net.interface_by_name(port).ipaddr, ipv4.src, ICMPType.TimeExceeded, origpkt=pkt)
 
-        if ipv4.dst in [intf.ipaddr for intf in self.net.interfaces()] and icmpHdr.icmptype == ICMPType.EchoRequest:
-            # 创建一个EchoReply：
-            print("(IPv4) 收到 EchoRequest")
-            return mk_ping(eHdr.dst, eHdr.src, ipv4.dst, ipv4.src, reply=True, payload=icmpHdr.icmpdata.data, sequence=icmpHdr.icmpdata.sequence)
+        if ipv4.dst in [intf.ipaddr for intf in self.net.interfaces()]:
+            # cannot handle this type of packet
+            if ipv4.protocol == IPProtocol.UDP:
+                print("(ERROR) UDP 报文")
+                return mk_icmperr(self.net.interface_by_name(port).ethaddr, eHdr.src,
+                                  self.net.interface_by_name(port).ipaddr, ipv4.src, ICMPType.DestinationUnreachable,
+                                  xcode=3,
+                                  origpkt=pkt)
+            if icmpHdr.icmptype == ICMPType.EchoRequest:
+                # 创建一个EchoReply：
+                print("(IPv4) 收到 EchoRequest")
+                return mk_ping(eHdr.dst, eHdr.src, ipv4.dst, ipv4.src, reply=True, payload=icmpHdr.icmpdata.data, sequence=icmpHdr.icmpdata.sequence)
 
         if ipv4.dst in [intf.ipaddr for intf in self.net.interfaces()] and icmpHdr.icmptype != ICMPType.EchoRequest:
             print("(ERROR) 分配给路由器接口之一的IP地址, 但该数据包不是ICMP echo请求")
@@ -227,11 +227,10 @@ class Router(object):
                     # 如果下一跳在ARP table中, 组装发送:
                     if curNextHop in self.arpTable.keys():
                         print("(IPv4) 下一跳在ARP table中")
+                        OkIPv4Pkg = pkt
+                        OkIPv4Pkg.get_header(Ethernet).dst = self.arpTable[curNextHop]
+                        OkIPv4Pkg.get_header(Ethernet).src = self.net.interface_by_name(i.intf).ethaddr
 
-                        e = pkt.get_header(Ethernet)
-                        e.dst = self.arpTable[curNextHop]
-                        e.src = self.net.interface_by_name(i.intf).ethaddr
-                        OkIPv4Pkg = e + pkt.get_header(IPv4) + pkt.get_header(ICMP)
                         print("(IPv4) [send2] 组装IP包完成并准备发送: ", OkIPv4Pkg)
                         self.net.send_packet(i.intf, OkIPv4Pkg)
                         print("发送成功！")
@@ -330,14 +329,12 @@ class Router(object):
                             print("(ARP reply) 应答了self.IPv4Queue的(找到下一跳的MAC): {} -> {}".format(arp.senderprotoaddr,
                                                                                                arp.senderhwaddr))
                             for curIPv4Pkg in self.IPv4Queue[arp.senderprotoaddr].IPv4PktQueue:
-                                e = curIPv4Pkg.get_header(Ethernet)
-                                e.dst = arp.senderhwaddr  # 填写MAC.
-                                e.src = self.net.interface_by_name(dev).ethaddr
-                                OkIPv4Pkg = e + curIPv4Pkg.get_header(IPv4) + curIPv4Pkg.get_header(ICMP)
+                                curIPv4Pkg.get_header(Ethernet).dst = arp.senderhwaddr
+                                curIPv4Pkg.get_header(Ethernet).src = self.net.interface_by_name(dev).ethaddr
 
-                                print("(ARP reply) [send1] 组装IP包完成并准备发送, IP包: ", OkIPv4Pkg)
+                                print("(ARP reply) [send1] 组装IP包完成并准备发送, IP包: ", curIPv4Pkg)
                                 # 包组装好了, 发送:
-                                self.net.send_packet(dev, OkIPv4Pkg)
+                                self.net.send_packet(dev, curIPv4Pkg)
                                 print("发送成功！")
                             del self.IPv4Queue[arp.senderprotoaddr]
 
@@ -366,4 +363,3 @@ def main(net):
     r = Router(net)
     r.router_main()
     net.shutdown()
-

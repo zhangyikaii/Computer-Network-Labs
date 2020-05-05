@@ -118,6 +118,8 @@ def icmp_tests():
     nottinyttl = '''lambda pkt: pkt.get_header(IPv4).ttl >= 8'''
 
     # Your tests here
+    # 我自己写的测试用例在myroutertest里
+    print("我自己写的测试用例在myroutertest.py里yo")
 
     return s
 
