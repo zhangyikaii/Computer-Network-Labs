@@ -15,11 +15,12 @@ from switchyard.lib.userlib import *
 
 
 class IPv4PkgMsg():
-    def __init__(self, IPv4PktQueue, timestamp, ARPRequest, outIntf, sendNum=0):
+    def __init__(self, IPv4PktQueue, timestamp, ARPRequest, outIntf, fromIntf, sendNum=0):
         self.IPv4PktQueue = IPv4PktQueue
         self.timestamp = timestamp
         self.ARPRequest = ARPRequest
         self.outIntf = outIntf
+        self.fromIntf = fromIntf
         self.sendNum = sendNum
 
     # def __iter__(self):
@@ -164,12 +165,13 @@ class Router(object):
         print("")
 
     # 返回处理过后的报错包:
-    def judge_pkt_error(self, pkt, port, isARPFailure=False):
+    def judge_pkt(self, pkt, port, isARPFailure=False):
         ipv4 = pkt.get_header(IPv4)
         icmpHdr = pkt.get_header(ICMP)
         eHdr = pkt.get_header(Ethernet)
 
         if isARPFailure == True:
+            print(pkt)
             return mk_icmperr(self.net.interface_by_name(port).ethaddr, eHdr.src,
                               self.net.interface_by_name(port).ipaddr, ipv4.src, ICMPType.DestinationUnreachable,
                               xcode=1,
@@ -201,9 +203,16 @@ class Router(object):
             print("(IPv4) 收到 EchoRequest")
             return mk_ping(eHdr.dst, eHdr.src, ipv4.dst, ipv4.src, reply=True, payload=icmpHdr.icmpdata.data, sequence=icmpHdr.icmpdata.sequence)
 
+        if ipv4.dst in [intf.ipaddr for intf in self.net.interfaces()] and icmpHdr.icmptype != ICMPType.EchoRequest:
+            print("(ERROR) 分配给路由器接口之一的IP地址, 但该数据包不是ICMP echo请求")
+            return mk_icmperr(self.net.interface_by_name(port).ethaddr, eHdr.src,
+                              self.net.interface_by_name(port).ipaddr, ipv4.src, ICMPType.DestinationUnreachable,
+                              xcode=3,
+                              origpkt=pkt)
+
         return pkt
 
-    def send_ready(self, pkt):
+    def send_ready(self, pkt, port):
         ipv4 = pkt.get_header(IPv4)
 
         # 目标地址不是路由器上的接口:
@@ -232,6 +241,7 @@ class Router(object):
                         if curNextHop in self.IPv4Queue.keys():
                             print("(IPv4) 下一跳在等待队列中, 已存入.")
                             self.IPv4Queue[curNextHop].IPv4PktQueue.append(pkt)
+                            self.IPv4Queue[curNextHop].fromIntf.append(port)
                         else:
                             arpRequest = create_ip_arp_request(
                                 self.net.interface_by_name(i.intf).ethaddr,
@@ -242,7 +252,7 @@ class Router(object):
                                   .format(i.intf, arpRequest))
                             self.net.send_packet(i.intf, arpRequest)
                             print("发送成功！")
-                            self.IPv4Queue[curNextHop] = IPv4PkgMsg([pkt], time.time(), arpRequest, i.intf, 1)
+                            self.IPv4Queue[curNextHop] = IPv4PkgMsg([pkt], time.time(), arpRequest, i.intf, [port], 1)
                     break
 
     def router_main(self):
@@ -269,9 +279,9 @@ class Router(object):
                 if time.time() - self.IPv4Queue[key].timestamp > 1 and self.IPv4Queue[key].sendNum >= 5:
                     print("self.IPv4Queue中的: ", self.IPv4Queue[key], "已过期, 即将被删除.")
                     print("(ERROR) ARP Failure")
-                    for pendPkt in self.IPv4Queue[key].IPv4PktQueue:
-                        pkt = self.judge_pkt_error(pendPkt, self.IPv4Queue[key].outIntf, isARPFailure=True)
-                        self.send_ready(pkt)
+                    for idx, pendPkt in enumerate(self.IPv4Queue[key].IPv4PktQueue):
+                        pkt = self.judge_pkt(pendPkt, self.IPv4Queue[key].fromIntf[idx], isARPFailure=True)
+                        self.send_ready(pkt, self.IPv4Queue[key].fromIntf[idx])
                     del self.IPv4Queue[key]
 
             # 重发ARP request:
@@ -339,10 +349,10 @@ class Router(object):
                     print("TTL: ", pkt.get_header(IPv4).ttl)
                     pkt.get_header(IPv4).ttl -= 1
                     print("(IPv4) Error 检测 [Before]: ", pkt)
-                    pkt = self.judge_pkt_error(pkt, dev)
+                    pkt = self.judge_pkt(pkt, dev)
                     print("(IPv4) Error 检测 [After]: ", pkt)
 
-                    self.send_ready(pkt)
+                    self.send_ready(pkt, dev)
 
                 print("self.IPv4Queue: ")
                 self.print_userDefined_table(self.IPv4Queue, True)
