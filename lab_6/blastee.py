@@ -60,7 +60,7 @@ def switchy_main(net):
                 payloadByte += "\0".encode() * (8 - len(payloadByte))
             payloadByte = payloadByte[0:8]
 
-            print("seq_num: {}, data: {}".format(seqNum, payload))
+            print("seqNum: {}, payload: {}".format(seqNum, payload))
 
             def mk_pkt(ethSrc, ethDst, ipSrc, ipDst, seqNum, payloadByte):
                 eth = Ethernet()
