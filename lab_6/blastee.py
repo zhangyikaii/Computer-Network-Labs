@@ -11,12 +11,12 @@ from base64 import b64encode
 def parse_params():
     try:
         fp = open("blastee_params.txt")
-        context = fp.read().replace(" ", "") + "-"
-        para_b = re.findall("-b(.*?)-", context)
-        para_n = re.findall("-n(.*?)-", context)
-
+        context = fp.read().replace(" ", "")
+        para_b = re.findall("-b(.*?)[-\n]", context)
+        para_n = re.findall("-n(.*?)[-\n]", context)
+        print("解析参数结果： {}， {}".format(para_b, para_n))
         fp.close()
-        return IPv4Address(para_b), int(para_n)
+        return IPv4Address(para_b[0]), int(para_n[0])
 
     except FileNotFoundError:
         log_debug("ERROR: File not found.")
@@ -83,10 +83,12 @@ def switchy_main(net):
                 seqNum,
                 payloadByte
             )
+            print("seqNum: ", seqNum)
             print("(blastee) 组装ACK完成并准备发送: ", ack)
+            log_info("<- 当前时间 ->")
             net.send_packet(
                 curIntf.name,
                 ack
             )
-            print("发送成功！")
+            print("发送成功！\n")
     net.shutdown()
