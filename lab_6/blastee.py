@@ -68,6 +68,7 @@ def switchy_main(net):
 
                 ip = IPv4(protocol=IPProtocol.UDP)
                 ip.src, ip.dst = ipSrc, ipDst
+                ip.ttl = 64
 
                 udp = UDP()
 
@@ -83,7 +84,6 @@ def switchy_main(net):
                 seqNum,
                 payloadByte
             )
-            print("seqNum: ", seqNum)
             print("(blastee) 组装ACK完成并准备发送: ", ack)
             log_info("<- 当前时间 ->")
             net.send_packet(

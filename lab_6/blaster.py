@@ -51,6 +51,12 @@ class Blaster(object):
         self.curIntf = net.interface_by_name('blaster-eth0')
         self.windowTimestampIdx = 0
         self.window = deque(maxlen=self.sdrWindow)
+        self.firstPktSendTime = -1
+        self.lastAckdPktTime = 0
+        self.reTX = 0
+        self.coarseTOs = 0
+        self.totalSendPktNum = 0
+        self.totalResendPktNum = 0
 
     def get_recv_timeout(self):
         return self.recvTimeout
@@ -63,10 +69,10 @@ class Blaster(object):
 
         log_info(" <- 当前时间 ->")
         if ans != -1 and ans != self.windowTimestampIdx:
-            print("\n===> window timestamp 被更新: {} -> {}. <===\n".format(self.windowTimestampIdx, ans))
+            print("\n===> window timestamp 被更新 (下标): {} -> {}. <===\n".format(self.windowTimestampIdx, ans))
             self.windowTimestampIdx = ans
         else:
-            print("\n===> window timestamp 未被更新. <===\n")
+            print("\n===> window timestamp 未被更新 (下标): {} <===\n".format(self.windowTimestampIdx))
 
     def recv_pkt(self, pkt):
         print("recv_pkt 开始!")
@@ -76,6 +82,8 @@ class Blaster(object):
         for i, v in enumerate(self.window):
             if v.seqNum == seqNum:
                 print("ACK了包 {}.".format(i + 1))
+                if time.time() > self.lastAckdPktTime:
+                    self.lastAckdPktTime = time.time()
                 v.isACK = True
                 self.update_windowTimestampIdx()
 
@@ -87,6 +95,20 @@ class Blaster(object):
         for v in self.window:
             if v.isACK == False:
                 return False
+        # Printing stats
+        totalTXtime = self.lastAckdPktTime - self.firstPktSendTime
+
+        print("")
+        print("=" * 80)
+        print("\n")
+        print("Total TX time (in seconds): {}".format(totalTXtime))
+        print("Number of reTX: {}".format(self.reTX))
+        print("Number of coarse TOs: {}".format(self.coarseTOs))
+        print("Throughput (Bps): {}".format(self.totalSendPktNum * self.payloadLength / totalTXtime))
+        print("Goodput (Bps): {}".format(self.totalResendPktNum * self.payloadLength / totalTXtime))
+        print("\n")
+        print("=" * 80)
+        print("")
         return True
 
     def mk_pkt(self, seq_num):
@@ -118,12 +140,16 @@ class Blaster(object):
             if len(self.window) > 0:
                 curSeqNum = self.window[len(self.window) - 1].seqNum + 1
             pkt = self.mk_pkt(curSeqNum)
-            self.window.append(PktMsg(pkt, curSeqNum))
+            pktInWindow = PktMsg(pkt, curSeqNum)
+            if self.firstPktSendTime == -1:
+                self.firstPktSendTime = pktInWindow.sendTime
+            self.window.append(pktInWindow)
 
             print("(send_pkt) 组装完成并准备发送: ", pkt)
             log_info(" <- 当前时间 ->")
             self.net.send_packet(self.curIntf.name, pkt)
-            print("发送成功!")
+            print("send_pkt 发送成功!")
+            self.totalSendPktNum += 1
             self.numPkt -= 1
             self.update_windowTimestampIdx()
 
@@ -143,6 +169,7 @@ class Blaster(object):
             self.coarseTimeout
         ))
         if curTime - self.window[self.windowTimestampIdx].sendTime > self.coarseTimeout:
+            self.coarseTOs += 1
             # 重发:
             retIsResend = True
             for i in self.window:
@@ -153,7 +180,10 @@ class Blaster(object):
                     print("(resend_pkt) 准备发送window内元素: ", i)
                     log_info(" <- 当前时间 ->")
                     self.net.send_packet(self.curIntf.name, i.pkt)
-                    print("发送成功!")
+                    print("resend_pkt 发送成功!")
+                    self.totalSendPktNum += 1
+                    self.totalResendPktNum += 1
+                    self.reTX += 1
                     break
             # 更新窗口Timestamp
             self.update_windowTimestampIdx()
@@ -169,6 +199,7 @@ def switchy_main(net):
 
     dev, pkt = None, None
     while True:
+        print(">" * 100)
         gotpkt = True
         try:
             # Timeout value will be parameterized!
