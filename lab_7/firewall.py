@@ -5,20 +5,21 @@ import time
 # protocol 的通配符是 IPv4, port 的通配符是 None, tokbucket 的通配符是 None.
 class RuleMsg():
     def __init__(self, protocol, isPermit, src, dst, srcport=None, dstport=None, ratelimit=None, impair=False):
-        self.protocol = protocol
-        self.isPermit = True if isPermit == "permit" else False
+        self.protocol = protocol # 协议
+        self.isPermit = True if isPermit == "permit" else False # 是否允许转发
 
-        self.src = self.process_addr(src)
-        self.dst = self.process_addr(dst)
-        self.srcport = None if srcport == 'any' or srcport is None else int(srcport)
-        self.dstport = None if dstport == 'any' or dstport is None else int(dstport)
-        self.tokbucket = None if ratelimit is None else int(ratelimit) * 2 # 初始化为2r
-        self.addtok = None if ratelimit is None else int(ratelimit) // 2
-        self.maxtok = None if ratelimit is None else int(ratelimit) * 2
-        self.toktimestamp = time.time()
-        self.impair = impair
+        self.src = self.process_addr(src) # 源IP
+        self.dst = self.process_addr(dst) # 目的IP
+        self.srcport = None if srcport == 'any' or srcport is None else int(srcport) # 源端口
+        self.dstport = None if dstport == 'any' or dstport is None else int(dstport) # 目的端口
+        self.tokbucket = None if ratelimit is None else int(ratelimit) * 2 # token桶, 初始化为2r
+        self.addtok = None if ratelimit is None else int(ratelimit) // 2 # 一次加入的token量
+        self.maxtok = None if ratelimit is None else int(ratelimit) * 2 # token桶内最大量.
+        self.toktimestamp = time.time() # token桶的时间戳
+        self.impair = impair # 是否需要impair
 
     def add_tokens(self, timestamp):
+        # 更新时间戳并加入token.
         interval = timestamp - self.toktimestamp
         print("interval: {}".format(interval))
         isUpdate = False
@@ -36,6 +37,7 @@ class RuleMsg():
             print("未更新, tokbucket: {}".format(self.tokbucket))
 
     def process_addr(self, addr):
+        # 预处理地址
         if addr == 'any':
             return IPv4Network('0.0.0.0/0')
         elif addr.find("/") == -1:
@@ -44,6 +46,7 @@ class RuleMsg():
             return IPv4Network(addr)
 
     def __str__(self):
+        # 自定义输出
         return "「 {} 」".format(", ".join("{}: {}".format(key, getattr(self, key)) for key in self.__dict__.keys()))
 
 class Rules():
@@ -169,12 +172,13 @@ def main(net):
             curJudge = r.judge_permit(pkt)
             if curJudge == -1:
                 import random
-                impairOpt = random.randint(1, 4)
-                impairOpt = 2
+                # impairOpt = random.randint(1, 4) # 注意注意注意: 这里四个选项都实现了, 您可以让程序随机选择.
+                impairOpt = 1
                 if impairOpt == 1:
-                    # 选项一: 设置概率(百分之五十)丢包:
-                    if random.uniform(0, 1) < 0.5:
-                        print("impair 选项一: 丢包")
+                    # 选项一: 设置概率(百分之十)丢包:
+                    rand = random.uniform(0, 1)
+                    if rand < 0.1:
+                        print("impair 选项一: 丢包, rand: {}".format(rand))
                         continue
                     else:
                         print("impair 选项一: 未丢包")
@@ -189,9 +193,40 @@ def main(net):
 
                     def case3(pkt):
                         # Rewrite/overwrite the application payload contents of packets.
-                        pass
+                        if pkt.has_header(IPv4) and pkt.get_header(IPv4).protocol == IPProtocol.TCP and pkt.has_header(RawPacketContents):
+                            rand = random.uniform(0, 1)
+                            if rand < 0.1:
+                                print("impair 选项三 TCP 被改动.")
+                                print("修改前:")
+                                print(pkt)
+                                hdr = pkt.get_header(RawPacketContents)
+                                seqNum = int.from_bytes(hdr.data[:4], 'big')
+                                from base64 import b64encode
+                                payload = b64encode(hdr.data[6:]).decode('utf-8')
+                                print("impair 选项三 pkt 解析: \nseqNum: {}, payload: {}".format(seqNum, payload))
+
+                                payloadByte = hdr.data[6:]
+                                # 如果不够长要padding:
+                                if len(payloadByte) < 8:
+                                    payloadByte += "\0".encode() * (8 - len(payloadByte))
+                                payloadByte = payloadByte[0:8] + "China_Niu!_(zyk)".encode()
+
+                                pkt = pkt.get_header(Ethernet) + pkt.get_header(IPv4) + pkt[2] + seqNum.to_bytes(4, 'big') + payloadByte
+
+                                print("修改后:")
+                                print(pkt)
+
+                        return pkt
+
                     def case4(pkt):
-                        pass
+                        # Randomly inject TCP RST packets to reset (and take down) traffic flows.
+                        if pkt.has_header(IPv4) and pkt.get_header(IPv4).protocol == IPProtocol.TCP:
+                            rand = random.uniform(0, 1)
+                            if rand < 0.01:
+                                print("RST 被改动.")
+                                pkt[2].RST = True
+
+                        return pkt
 
                     switch = {
                         2: case2,
@@ -200,6 +235,8 @@ def main(net):
                     }
 
                     pkt = switch[impairOpt](pkt)
+                print("impair 准备发送: ", pkt)
+                net.send_packet(portpair[input_port], pkt)
 
             elif curJudge == True:
                 net.send_packet(portpair[input_port], pkt)
